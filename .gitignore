@@ -1,0 +1,13 @@
+final/
+backoff_model/
+.Rhistory
+.rds
+.rda
+test/
+train
+rsconnect/
+.csv
+*.csv
+*.rda
+repo_summary.rds
+badwords.txt

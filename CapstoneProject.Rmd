@@ -1,0 +1,91 @@
+---
+title: "Word Prediction Application"
+author: "Rahul Jain"
+date: "21/05/2022"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Introduction
+
+This is the presentation for **Capstone Project**. This course focuses on analyzes a corpus of text and build
+a n-gram model to predict next word in sequence
+
+**Contents**
+
+* Text data analysis: analysis of the corpus to understand the relationship of words and word pairs
+* Predictive modeling: build basic n-gram models and develop algorithms to facilitate text prediction
+* Shiny app development: produce a web-based Shiny app interface to predict next words
+
+## Project
+
+Below steps were followed as part of this project
+
+1. Sampling and cleaning Data - First I sampled the data to use 10% of data for training and subsequently removed profanity so that we don't predict those
+2. Exploratory Data Analysis - Frequency plots for bi-grams, tri-grams were made to observe whether n-gram modelling can be useful
+3. Modelling - Backoff model (5 - gram) from sbo package was used to build final model for prediction
+4. Shiny - Finally I made Shiny app to build an application for predicting next words in the model
+
+
+## Shiny Application
+
+Shiny app can be found here - https://rjain92.shinyapps.io/WordPredictionApp/
+
+The app takes in 2 inputs :
+* query - phrase that the user input for next word prediction
+* number of predictions
+
+Application will produce a word-cloud with the best prediction shown in largest text with font decreasing with subsequent predictions
+
+## Data Exploration - Frequency plot for bi-grams
+
+```{r echo=FALSE, warning=FALSE}
+suppressPackageStartupMessages(library(tidytext))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(quanteda))
+suppressPackageStartupMessages(library(tm))
+suppressPackageStartupMessages(library(stringi))
+suppressPackageStartupMessages(library(readtext))
+suppressPackageStartupMessages(library(quanteda.textplots))
+suppressPackageStartupMessages(library(quanteda.textstats,quietly = TRUE))
+blogs_file <- "train/train_blogs_clean.txt"
+news_file <- "train/train_news_clean.txt"
+twitter_file <- "train/train_twitter_clean.txt"
+blogs <- readLines(blogs_file, skipNul = TRUE)
+news <- readLines(news_file, skipNul = TRUE)
+twitter <- readLines(twitter_file, skipNul = TRUE)
+blogs <- removePunctuation(blogs)
+news <- removePunctuation(news)
+twitter <- removePunctuation(twitter)
+blogs <- stripWhitespace(blogs)
+news <- stripWhitespace(news)
+twitter <- stripWhitespace(twitter)
+blogs <- gsub("â","",blogs)
+news <- gsub("â","",news)
+twitter <- gsub("â","",twitter)
+corp <- corpus(c(blogs, news, twitter))
+tokenWord <- tokens(corp, what = "word", remove_numbers = TRUE,
+                remove_punct = TRUE, remove_separators = TRUE, remove_symbols = TRUE,
+                remove_url = TRUE)
+dfm_corp <- dfm(tokenWord, tolower = TRUE)
+features_dfm_corp <- textstat_frequency(dfm_corp, n = 50)
+features_dfm_corp$feature <- with(features_dfm_corp, reorder(feature,-frequency))
+```
+
+```{r echo=FALSE}
+token_words_2grams <- tokens_ngrams(tokenWord, n = 2L, concatenator = " ")
+dfm_corp_2gm <- dfm(token_words_2grams, tolower = TRUE)
+top2gAll <- textstat_frequency(dfm_corp_2gm, n = 20)
+top2gAll$feature <- with(top2gAll, reorder(feature, -frequency))
+barplot(top2gAll$frequency, names.arg = top2gAll$feature, col = "red", las = 2,
+        main = "Top Bigrams", ylab = "Word Frequencies", cex.axis = 0.8)
+```
+
+## References
+
+* Github repo for the project - 
+* More about Katz's Backoff Model - https://en.wikipedia.org/wiki/Katz%27s_back-off_model
+* SBO Package Documentation - https://cran.r-project.org/web/packages/sbo/vignettes/sbo.html

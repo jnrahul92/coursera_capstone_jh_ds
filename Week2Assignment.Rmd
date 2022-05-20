@@ -1,0 +1,160 @@
+---
+title: "Week2Assignment"
+author: "Rahul Jain"
+date: "16/05/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Executive Summary
+
+Goal of this project is to do data exploration on the data-set to find useful patterns by looking at 
+frequency distributions of words and also explore 2-gram and 3-gram frequency distribution. We will 
+also explore whether an n-gram model would be a good solution for predicting the next word.
+
+## Loadding necessary libraries
+
+```{r echo=TRUE, warning=FALSE}
+library(tidytext)
+library(tidyverse)
+library(quanteda)
+library(readtext)
+library(quanteda.textplots)
+library(quanteda.textstats)
+library(stringi)
+library(tm)
+```
+
+## Loading the data-set
+
+```{r echo=TRUE,warning=FALSE}
+twitter_file <- 'final/en_US/en_US.twitter.txt'
+blogs_file <- "final/en_US/en_US.blogs.txt"
+news_file <- "final/en_US/en_US.news.txt"
+blogs <- readLines(blogs_file,encoding = "UTF-8",skipNul = TRUE)
+news <- readLines(news_file,encoding = "UTF-8",skipNul = TRUE)
+twitter <- readLines(twitter_file,encoding = "UTF-8",skipNul = TRUE)
+```
+
+## Basic Summary
+
+```{r echo=TRUE, warning=FALSE}
+blog_size <- file.size(blogs_file) / 2**20
+news_size <- file.size(news_file) / 2**20
+twitter_size <- file.size(twitter_file) / 2**20
+bsum <-  matrix(c(NROW(blogs),NROW(news),NROW(twitter),sum(nchar(blogs)),sum(nchar(news)),sum(nchar(twitter)),
+                  blog_size,news_size,twitter_size),byrow = FALSE,nrow=3,ncol=3,
+                  dimnames = list(c("blogs","news","twitter"),c("No.Of Lines","No. Of Characters","File Size in Mb")))
+wordCount <- sapply(list(blogs,news,twitter), stri_stats_latex)['Words',]
+bsum <- cbind(bsum, wordCount)
+bsum
+```
+
+## Sampling the dataset
+
+We will use only 1% of the data-set for visualization
+
+```{r echo=TRUE}
+factor <- 0.01
+blogs_sample <- sample(blogs, round(factor*length(blogs)))
+news_sample <- sample(news, round(factor*length(news)))
+twitter_sample <- sample(twitter, round(factor*length(twitter)))
+rm(blogs, news, twitter)
+```
+
+## Clean the data-set
+
+**Remove Punctuation, profanity and white-space**
+
+```{r echo=TRUE, warning=FALSE}
+source("profanity_filtering.R")
+badwords <- badlist <- readLines("badwords.txt")
+blogs_clean <- rmProfanity(blogs_sample,reference = badwords, words = "â")
+news_clean <- rmProfanity(news_sample,reference = badwords,words = "â")
+twitter_clean <- rmProfanity(twitter_sample,reference = badwords,words = "â")
+
+blogs <- removePunctuation(blogs_clean)
+news <- removePunctuation(news_clean)
+twitter <- removePunctuation(twitter_clean)
+
+rm(blogs_sample,news_sample,twitter_sample,blogs_clean,news_clean,twitter_clean)
+
+blogs <- stripWhitespace(blogs)
+news <- stripWhitespace(news)
+twitter <- stripWhitespace(twitter)
+
+```
+
+## Creating a corpus from the data-set and tokenize
+
+```{r echo=TRUE, warning=FALSE}
+corp <- corpus(c(blogs, news, twitter))
+tokenWord <- tokens(corp, what = "word", remove_numbers = TRUE,
+                remove_punct = TRUE, remove_separators = TRUE, remove_symbols = TRUE,
+                remove_url = TRUE)
+```
+
+## Creating a wordcloud
+
+```{r echo=TRUE, warning=FALSE}
+dfm_corp <- dfm(tokenWord, tolower = TRUE)
+dfm_corp %>% dfm_trim(min_termfreq = 200) %>% textplot_wordcloud(max_words = 1000)
+```
+
+## Creating frquency plot for words
+
+```{r echo=TRUE}
+features_dfm_corp <- textstat_frequency(dfm_corp, n = 50)
+features_dfm_corp$feature <- with(features_dfm_corp, reorder(feature,-frequency))
+ggplot(features_dfm_corp,aes(x = feature, y = frequency)) + geom_point() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+## Creating frequency plot for bi-grams
+
+```{r echo=TRUE}
+token_words_2grams <- tokens_ngrams(tokenWord, n = 2L, concatenator = " ")
+dfm_corp_2gm <- dfm(token_words_2grams, tolower = TRUE)
+top2gAll <- textstat_frequency(dfm_corp_2gm, n = 20)
+top2gAll$feature <- with(top2gAll, reorder(feature, -frequency))
+barplot(top2gAll$frequency, names.arg = top2gAll$feature, col = "red", las = 2,
+        main = "Top Bigrams", ylab = "Word Frequencies", cex.axis = 0.8)
+```
+
+## Creating frequency plot for tri-grams
+
+```{r echo=TRUE}
+token_words_3grams <- tokens_ngrams(tokenWord, n = 3L, concatenator = " ")
+dfm_corp_3gm <- dfm(token_words_3grams, tolower = TRUE)
+top3gAll <- textstat_frequency(dfm_corp_3gm, n = 20)
+top3gAll$feature <- with(top3gAll, reorder(feature, -frequency))
+barplot(top3gAll$frequency, names.arg = top3gAll$feature, col = "red", las = 2,
+        main = "Top Trigrams", ylab = "Word Frequencies", cex.axis = 0.8)
+```
+
+## Word Coverage
+
+```{r echo=TRUE, warning=FALSE}
+features_dfm_corp_all <- textstat_frequency(dfm_corp)
+features_dfm_corp_all$feature <- with(features_dfm_corp_all, reorder(feature,-frequency))
+totalWords <- sum(features_dfm_corp_all$frequency)
+features_dfm_corp_all$weight <- features_dfm_corp_all$frequency / totalWords
+wordN <- 0
+coverageCount <- 0
+
+for (i in 1:totalWords){
+  if(coverageCount <= 0.5){
+    coverageCount <- coverageCount + features_dfm_corp_all[i,"weight"]
+    wordN <- i
+  }
+  else{
+    break
+  }
+}
+
+print(paste(wordN,"words needed for 50% coverage"))
+```
