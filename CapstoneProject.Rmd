@@ -86,6 +86,6 @@ barplot(top2gAll$frequency, names.arg = top2gAll$feature, col = "red", las = 2,
 
 ## References
 
-* Github repo for the project - 
+* Github repo for the project - https://github.com/jnrahul92/coursera_capstone_jh_ds
 * More about Katz's Backoff Model - https://en.wikipedia.org/wiki/Katz%27s_back-off_model
 * SBO Package Documentation - https://cran.r-project.org/web/packages/sbo/vignettes/sbo.html
